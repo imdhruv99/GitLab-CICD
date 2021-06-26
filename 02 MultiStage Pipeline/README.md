@@ -20,7 +20,9 @@
 
 - Using Artifacts we can store our result of the stage into directory. Job artifacts created by GitLab Runner are uploaded to GitLab and are downloadable as a single archive using the GitLab UI or the GitLab API. Through the artifacts we can use first stage result into second stage result, if we do not use artifacts here than it will show no such file type of errors in second stage.
 
-![First Stage output with job artifacts](https://github.com/imdhruv99/GitLab-CICD/blob/main/02%20MultiStage%20Pipeline/Images/02.png)
+![First Stage output](https://github.com/imdhruv99/GitLab-CICD/blob/main/02%20MultiStage%20Pipeline/Images/02.png)
+
+![Job artifacts](https://github.com/imdhruv99/GitLab-CICD/blob/main/02%20MultiStage%20Pipeline/Images/04.png)
 
 - We can download generated artifacts from job artifacts panel which is located righthand side as you can see in above image
 
