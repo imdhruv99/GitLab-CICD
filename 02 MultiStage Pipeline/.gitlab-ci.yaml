@@ -1,0 +1,30 @@
+# Defining the stages
+stages:
+    - build
+    - test
+
+
+# 1st job
+build the car:
+    stage: build
+    script:
+        - mkdir build
+        - cd build
+        - touch car.txt
+        - echo "chassis" >> car.txt 
+        - echo "engine" >> car.txt
+        - echo "wheels" >> car.txt
+        - echo "sheets" >> car.txt
+    # used to store the data for transfering it to independent jobs
+    artifacts:
+        paths:
+            - build/
+
+
+# 2nd job
+test the car:
+    stage: test
+    script:
+        - test -f build/car.txt
+        - cd build
+        - cat car.txt
