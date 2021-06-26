@@ -1,0 +1,128 @@
+variables:
+  # "$CI_PIPELINE_IID" is built in Gitlab CICD variable 
+  ARTIFACT_NAME: cars-api-v$CI_PIPELINE_IID.jar
+
+stages:
+  - pre-build test
+  - build
+  - test
+  - deploy
+  - post-deploy test
+  - publish
+
+code quality:
+  stage: pre-build test
+  # Docker Image with JDK 12
+  image: openjdk:12-alpine
+  script:
+    - chmod +x gradlew
+    # Checking Code Quality using PMDTest standard, it will fail if some code quality issue founds and generate the report
+    - ./gradlew pmdMain pmdTest
+  artifacts:
+    when: always
+    # Saving report in specified path
+    paths:
+      - ./build/reports/pmd
+
+unit testing:
+  stage: pre-build test
+  # Docker Image with JDK 12
+  image: openjdk:12-alpine
+  script:
+    - chmod +x gradlew
+    # Unit Test of our Project, it will fail if some individual function test fails and generate reports
+    - ./gradlew test
+  artifacts:
+    when: always
+    paths:
+      - ./build/reports/tests
+    reports:
+      # Saving the Reports
+      junit: build/test-results/test/*.xml
+
+build:
+  stage: build
+  # Docker Image with JDK 12
+  image: openjdk:12-alpine
+  script:
+    # Updating Variables in "/src/main/resources/application.yml" so we can extract information with every new pipeline build
+    - sed -i "s/CI_PIPELINE_IID/$CI_PIPELINE_IID/" ./src/main/resources/application.yml
+    - sed -i "s/CI_COMMIT_SHORT_SHA/$CI_COMMIT_SHORT_SHA/" ./src/main/resources/application.yml
+    - sed -i "s/CI_COMMIT_BRANCH/$CI_COMMIT_BRANCH/" ./src/main/resources/application.yml
+    - chmod +x gradlew
+    - ./gradlew build
+    # Renaming the artifact 
+    - mv ./build/libs/cars-api.jar ./build/libs/$ARTIFACT_NAME
+  # Saving the artifact after completion
+  artifacts:
+    # Saving the build created by gradlew command
+    paths:
+      - ./build/libs/
+
+smoke test:
+  stage: test
+  # Docker Image with JDK 12
+  image: openjdk:12-alpine
+  # installing curl using `before_script`
+  before_script:
+    - apk --no-cache add curl
+  script:
+    # Running jar file
+    - java -jar ./build/libs/$ARTIFACT_NAME &
+    - sleep 50
+    # Hitting rest api using curl
+    - curl --silent http://localhost:5000/actuator/health 2>&1 | grep -q 'UP'
+
+deploy:
+  stage: deploy
+  # Spacifiying image with no entrypoint
+  image:
+    # Setting Docker image
+    name: banst/awscli
+    entrypoint: [""]
+  before_script:
+    # Installing curl and jq
+    - apk --no-cache add curl
+    - yum update -y && yum install -y jq
+  script:
+    # Setting AWS Region
+    - aws configure set region us-east-1
+    # Copying jar from gitlab to S3
+    - aws s3 cp ./build/libs/$ARTIFACT_NAME s3://$S3_BUCKET/$ARTIFACT_NAME
+    # Creating AWS ElasticBeanStalk Application with AutoCreateApplication = True
+    - aws elasticbeanstalk create-application-version --application-name "Cars API" --version-label $CI_PIPELINE_IID --source-bundle S3Bucket=$S3_BUCKET,S3Key=$ARTIFACT_NAME --auto-create-application
+    # Updating ENV with latest version and Extracting the LoadBalancer
+    - CNAME=$(aws elasticbeanstalk update-environment --application-name "Cars API" --environment-name "production" --version-label $CI_PIPELINE_IID | jq '.CNAME' --raw-output)
+    # Sleeping the process for 45sec so the Application gets ready
+    - sleep 45
+    # API Execution
+    - curl --silent http://$CNAME/actuator/info 2>&1 | grep -q $CI_PIPELINE_IID
+    - curl --silent http://$CNAME/actuator/health 2>&1 | grep -q 'UP'
+
+api testing:
+  stage: post-deploy test
+  image:
+    # Docker image for API Testing, It's command line runner for POSTMAN
+    name: vdespa/newman
+    entrypoint: [""]
+  script:
+    - newman --version
+    # Running API Testing on Postman collections, Setting Postman Envs and Generating Api Testing Reports
+    - newman run 'Cars API.postman_collection.json' --environment Production.postman_environment.json --reporters cli,htmlextra,junit --reporter-htmlextra-export "newman/report.html" --reporter-junit-export "newman/report.xml"
+  artifacts:
+    when: always
+    paths:
+      - ./newman
+    reports:
+      # Saving the Reports
+      junit: ./newman/report.xml
+
+pages:
+  stage: publish
+  script:
+    # Publishing Reports in GitLab Pages
+    - mkdir public
+    - cp ./newman/report.html ./public/index.html
+  artifacts:
+    paths:
+      - ./public
