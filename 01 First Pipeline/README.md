@@ -5,4 +5,4 @@
 - The Pipeline has one GitLab Runner named as `ci`, through this GitLab runs jobs in pipeline.
 
 - Here is the output of GitLab Pipeline
-![Output of simple gitlab pipeline]()
+![Output of simple gitlab pipeline](https://github.com/imdhruv99/GitLab-CICD/blob/main/01%20First%20Pipeline/Images/01.png)
