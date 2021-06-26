@@ -26,12 +26,17 @@
 
 - Create IAM user with `Administrator Access` and save `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` as variable.
 
+![Variables Configuration](https://github.com/imdhruv99/GitLab-CICD/blob/main/03%20Final%20Project/Images/01.png)
+
 - Create Environment named as `production` in `AWS Elastic BeanStalk` because creating env using CICD is not a best practice. Follow process given [here](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/environments-create-wizard.html) to create env. Choose `Upload your code` under the Application code section in AWS Console and upload Jar File from `build/libs/`. Later this jar file will be updated by automation with latest jar file.
+
+![Environment on AWS Elastic BeanStalk](https://github.com/imdhruv99/GitLab-CICD/blob/main/03%20Final%20Project/Images/10.png)
 
 ### Stages
 
 - Our CICD pipeline is divided in 6 stages. Below are the list of stages with simple explaination.
 
+![Pipeline Stages](https://github.com/imdhruv99/GitLab-CICD/blob/main/03%20Final%20Project/Images/02.png)
 
 -   #### pre-build test 
     
@@ -42,12 +47,16 @@
         - To perform this stage i have used `openjdk:12-alpine` docker image as base image to run commands in shell.
         - The Code Quality Job will perform `PMD Code Quality Test` and generates the reports.
         - All the reports stored under `/build/reports/pmd` using artifacts.
+
+        ![Code Quality Job Output](https://github.com/imdhruv99/GitLab-CICD/blob/main/03%20Final%20Project/Images/03.png)
     
     - **Unit Testing Job**
         
         - To perform this stage i have used `openjdk:12-alpine` docker image as base image to run commands in shell.
         - To perform unit test i have simply used `Gradle` automation tool.
         - Test Reports will be stored in `/build/reports/tests` and Test Result will be stored under `build/test-results/test/*.xml` in XML format.
+        
+        ![Unit Testing Job Output](https://github.com/imdhruv99/GitLab-CICD/blob/main/03%20Final%20Project/Images/04.png)
 
 -   #### build 
     
@@ -58,7 +67,9 @@
         - To perform this stage i have used `openjdk:12-alpine` docker image as base image to run commands in shell.
         - First of all i have update app version, commit id and brach in `application.yaml` using sed commands and GitLab provided built-in CICD Variables. Through this we can track latest build version, commit number and commit branch.
         - `./gradlew build` will build the project and generate the Jar file. I have used Variable as a reference of jar file name.
-        - Artifacts will store the jar file for next stages. 
+        - Artifacts will store the jar file for next stages.
+
+        ![Build Job Output](https://github.com/imdhruv99/GitLab-CICD/blob/main/03%20Final%20Project/Images/05.png)
 
 -   #### test
 
@@ -69,6 +80,8 @@
         - To perform this stage i have used `openjdk:12-alpine` docker image as base image to run commands in shell.
         - To run smoke test i have installed the `curl command` using `before_script` gitlab cicd module. It will execute before main script module.
         - After that job will run the jar file and hit the `health api` which will gives us status about our applications health.
+
+        ![Smoke Test Job Output](https://github.com/imdhruv99/GitLab-CICD/blob/main/03%20Final%20Project/Images/06.png)
 
 -   #### deploy
 
@@ -84,6 +97,14 @@
         - CNAME will give us the `LoadBalancer DNS ENDPOINT` for communicating with our application.
         - After 45 sec of deploying it will check health of our application and information such as version, branch and commit id of our application.
 
+        ![Deploy Job Output](https://github.com/imdhruv99/GitLab-CICD/blob/main/03%20Final%20Project/Images/07.png)
+
+        ![AWS S3 Bucket](https://github.com/imdhruv99/GitLab-CICD/blob/main/03%20Final%20Project/Images/08.png)
+
+        ![AWS Elastic BeanStalk](https://github.com/imdhruv99/GitLab-CICD/blob/main/03%20Final%20Project/Images/09.png)
+
+        - Here, health is `severe` because AWS Elatic BeanStalk uses low latency based instance by default.
+
 -   #### post-deploy test
 
     - Post-Deploy Test Stage will perform API Testing on our Application. I have created the `POSTMAN API Collection` in json file.
@@ -96,6 +117,8 @@
         - `Production.postman_environment.json` is env setup for our Postman.
         - The output will be stored in XML and HTML as well. XML reports will be stored in `/newman/report.xml`.
 
+        ![API Testing Job Output](https://github.com/imdhruv99/GitLab-CICD/blob/main/03%20Final%20Project/Images/11.png)
+
 -   #### publish
 
     - Publish page is used to publish GitLab Pages.
@@ -103,3 +126,17 @@
     - **Pages Job**
 
     - This job will create public directory and copy the postman `report.html` under that directory as `index.html`.
+
+    ![Pages Job Output](https://github.com/imdhruv99/GitLab-CICD/blob/main/03%20Final%20Project/Images/12.png)
+
+    - `pages:deploy` job under the Deploy Stage in Gitlab will be generated automatically to deploy GitLab Pages. It is external job deployed by gitlab for gitlab pages.
+
+    ![External Job](https://github.com/imdhruv99/GitLab-CICD/blob/main/03%20Final%20Project/Images/13.png)
+
+    - Now after Deploying the gitlab pages, if you want to access this page, go to `GitLab Repository > Settings > Pages`. It will show deployed pages with url.
+
+    ![Deployed Pages](https://github.com/imdhruv99/GitLab-CICD/blob/main/03%20Final%20Project/Images/14.png)
+
+    ![Gitlab Pages](https://github.com/imdhruv99/GitLab-CICD/blob/main/03%20Final%20Project/Images/15.png)
+
+    - Above output show us `newman` report with `7 API Requests`. All Requests are passed and nothing is faild.
